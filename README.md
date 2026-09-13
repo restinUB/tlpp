@@ -2,6 +2,9 @@
 This is an educational project I made as a replacement for my exact same C logger.
 I've never used other logging libraries, so this lib is my pure rookie look.
 
+<img width="515" height="101" alt="image" src="https://github.com/user-attachments/assets/149eb0e2-c6da-42e2-8000-696d9d7f8852" />
+
+
 ## Some small features:
 - formatted terminal output using ANSI and a set of log "segments"
 - append to a specified file (with optional ANSI support)
