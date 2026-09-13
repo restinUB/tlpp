@@ -69,12 +69,12 @@ namespace lgr {
             std::source_location src = std::source_location::current());
 
         void write_log(
-            const FILE *file_ptr,
             std::string_view str,
             LogLevels log_level = DEFAULT_LOG_LEVEL,
             int errno_num = errno,
-            std::chrono::steady_clock::time_point time_point = {},
+            double exec_time = 0.0,
             bool include_time = false,
+            FILE *file_ptr = nullptr,
             bool use_ansi = USE_ANSI_ON_LOG_WRITE,
             bool include_path = true,
             std::source_location src = std::source_location::current());

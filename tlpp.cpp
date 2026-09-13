@@ -145,9 +145,9 @@ namespace lgr {
             log_string.append(err_suffix);
         }
 
+        const double exec_s = std::chrono::duration<double>(time_now - time_point).count();
         if (include_time) {
             // ... in 0.002s
-            const double exec_s = std::chrono::duration<double>(time_now - time_point).count();
             log_string.append(std::format(" in {:.3f}s", exec_s));
         }
 
@@ -155,22 +155,28 @@ namespace lgr {
 
         std::cout << log_string << '\n';
 
+        // todo: fix exec_time output
+        // it's should be passed correctly
+        // it'll display uptime for now, I suppose, since it's bugged
         if (this->get_stream())
-            this->write_log(this->get_log_file(), str, log_level, err, time_point, true);
+            this->write_log(str, log_level, err);
     }
 
     void logger::write_log(
-        const FILE *file_ptr,
         const std::string_view str,
         const LogLevels log_level,
         const int errno_num,
-        const std::chrono::steady_clock::time_point time_point,
+        const double exec_time,
         const bool include_time,
+        FILE *file_ptr,
         const bool use_ansi,
         const bool include_path,
         const std::source_location src)
     {
-        if (!file_ptr) {
+        FILE *write_to = file_ptr
+            ? file_ptr
+            : this->get_log_file();
+        if (!write_to) {
             errno = ENOENT;
             this->log_err("Attempted to write a log with an invalid file pointer", true);
         }
@@ -233,15 +239,15 @@ namespace lgr {
 
         if (include_time) {
             // ... in 0.002s
-            const double exec_s = std::chrono::duration<double>(time_now - time_point).count();
-            log_string.append(std::format(" in {:.3f}s", exec_s));
+            log_string.append(" in " + std::to_string(exec_time));
         }
 
         if (use_ansi)
             log_string.append(f_clr + '\n');
         else
             log_string.insert(log_string.end(), '\n');
-        std::fputs(log_string.c_str(), this->get_log_file());
+
+        std::fputs(log_string.c_str(), write_to);
     }
 
     void logger::log_verbose(
