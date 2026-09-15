@@ -1,82 +1,98 @@
 ﻿#pragma once
 
 #include <chrono>
-#include <ctime>
 #include <functional>
+#include <map>
 #include <source_location>
 #include <string>
 
 namespace lgr {
     typedef std::string string;
 
+    typedef enum LogLevels {
+        LOG_LEVEL_VERBOSE,
+        LOG_LEVEL_DEBUG,
+        LOG_LEVEL_INFO,
+        LOG_LEVEL_WARN,
+        LOG_LEVEL_ERR,
+        LOG_LEVEL_UNKN,
+        MAX_LOG_LEVELS, // only for range checks
+    } LogLevels;
+
     #define DEFAULT_LOG_LEVEL LOG_LEVEL_INFO
+
+    #define DEFAULT_TIMESTAMP_ON_LOG_PRINT false
+    #define USE_ANSI_ON_LOG_PRINT true
+
+    #define DEFAULT_TIMESTAMP_ON_LOG_WRITE true
     #define USE_ANSI_ON_LOG_WRITE false
+    
+    extern const string DEFAULT_EXEC_TIME_PREFIX;
+
+    extern const std::map<string, LogLevels> log_levels_args;
 
     // ANSI colors
-    const string c_black = "\033[0;30m";
-    const string c_red = "\033[0;31m";
-    const string c_green = "\033[0;32m";
-    const string c_yellow = "\033[0;33m";
-    const string c_blue = "\033[0;34m";
-    const string c_purple = "\033[0;35m";
-    const string c_cyan = "\033[0;36m";
-    const string c_white = "\033[0;37m";
+    extern const string c_black;
+    extern const string c_red;
+    extern const string c_green;
+    extern const string c_yellow;
+    extern const string c_blue;
+    extern const string c_purple;
+    extern const string c_cyan;
+    extern const string c_white;
     // ANSI formatting
-    const string f_clr = "\033[0m";
-    const string f_bold = "\033[1m";
-    const string f_underline = "\033[4m";
+    extern const string f_clr;
+    extern const string f_bold;
+    extern const string f_underline;
     // ANSI backgrounds
-    const string bg_black = "\033[40m";
-    const string bg_red = "\033[41m";
-    const string bg_green = "\033[42m";
-    const string bg_yellow = "\033[43m";
-    const string bg_blue = "\033[44m";
-    const string bg_purple = "\033[45m";
-    const string bg_cyan = "\033[46m";
-    const string bg_white = "\033[47m";
+    extern const string bg_black;
+    extern const string bg_red;
+    extern const string bg_green;
+    extern const string bg_yellow;
+    extern const string bg_blue;
+    extern const string bg_purple;
+    extern const string bg_cyan;
+    extern const string bg_white;
 
     class logger {
-    public:
-        typedef enum LogLevels {
-            LOG_LEVEL_VERBOSE,
-            LOG_LEVEL_DEBUG,
-            LOG_LEVEL_INFO,
-            LOG_LEVEL_WARN,
-            LOG_LEVEL_ERR,
-            LOG_LEVEL_UNKN,
-            MAX_LOG_LEVELS, // only for range checks
-        } LogLevels;
-
     private:
         LogLevels cur_log_level = LOG_LEVEL_UNKN;
 
-        time_t last_log_time {};
-        time_t creation_time {time(nullptr)};
+        std::chrono::steady_clock::time_point last_log_time {};
+        std::chrono::steady_clock::time_point creation_time = std::chrono::steady_clock::now();
         unsigned written_logs_count {};
 
         bool has_opened_stream {};
         FILE *log_file {};
 
-        void find_logger_args(int argc, const char **argv);
+        void find_logger_args(int argc, char *const *argv);
+
+        FILE *open_log_stream(int argc_num, char *const *argv);
+
+        string get_fmt_time(
+            const string &y_m_d_separator = "-",
+            const string &middle_separator = " ",
+            const string &h_m_s_separator = ":");
 
         void print_log(
             std::string_view str,
             LogLevels log_level = DEFAULT_LOG_LEVEL,
             int errno_num = errno,
-            bool include_time = false,
+            std::optional<std::chrono::steady_clock::time_point> tp = std::nullopt,
             bool include_path = false,
-            std::chrono::steady_clock::time_point time_point = {},
+            bool timestamp = DEFAULT_TIMESTAMP_ON_LOG_PRINT,
+            bool use_ansi = USE_ANSI_ON_LOG_PRINT,
             std::source_location src = std::source_location::current());
 
         void write_log(
             std::string_view str,
-            LogLevels log_level = DEFAULT_LOG_LEVEL,
-            int errno_num = errno,
-            double exec_time = 0.0,
-            bool include_time = false,
             FILE *file_ptr = nullptr,
-            bool use_ansi = USE_ANSI_ON_LOG_WRITE,
+            LogLevels log_level = DEFAULT_LOG_LEVEL,
+            double exec_time = -1.0,
+            int errno_num = errno,
             bool include_path = true,
+            bool timestamp = DEFAULT_TIMESTAMP_ON_LOG_WRITE,
+            bool use_ansi = USE_ANSI_ON_LOG_WRITE,
             std::source_location src = std::source_location::current());
 
     public:
@@ -92,15 +108,14 @@ namespace lgr {
         [[nodiscard]]
         LogLevels get_log_level() const {return this->cur_log_level;};
 
-        void set_last_log_time(time_t time);
+        void update_last_log_time(
+            std::optional<std::chrono::steady_clock::time_point> tp = std::nullopt);
 
         [[nodiscard]]
-        time_t get_last_log_time() const {return this->last_log_time;};
+        std::chrono::steady_clock::time_point get_last_log_time() const {return this->last_log_time;};
 
         [[nodiscard]]
-        time_t get_creation_time() const {return this->creation_time;};
-
-        void increment_written_logs_count();
+        std::chrono::steady_clock::time_point get_creation_time() const {return this->creation_time;};
 
         [[nodiscard]]
         unsigned get_written_logs_count() const {return this->written_logs_count;};
@@ -113,45 +128,59 @@ namespace lgr {
 
         void log_verbose(
             std::string_view str,
-            std::chrono::steady_clock::time_point time_point = {},
-            bool include_time = false,
+            std::optional<std::chrono::steady_clock::time_point> tp = std::nullopt,
             bool include_path = true,
+            bool timestamp = DEFAULT_TIMESTAMP_ON_LOG_PRINT,
             int errno_num = 0,
-            LogLevels log_level = LOG_LEVEL_VERBOSE);
+            LogLevels log_level = LOG_LEVEL_VERBOSE,
+            bool use_ansi = USE_ANSI_ON_LOG_PRINT,
+            std::source_location src = std::source_location::current());
 
         void log_debug(
             std::string_view str,
-            std::chrono::steady_clock::time_point time_point = {},
-            int errno_num = 0,
-            bool include_time = false,
+            std::optional<std::chrono::steady_clock::time_point> tp = std::nullopt,
             bool include_path = false,
-            LogLevels log_level = LOG_LEVEL_DEBUG);
+            bool timestamp = DEFAULT_TIMESTAMP_ON_LOG_PRINT,
+            int errno_num = 0,
+            LogLevels log_level = LOG_LEVEL_DEBUG,
+            bool use_ansi = USE_ANSI_ON_LOG_PRINT,
+            std::source_location src = std::source_location::current());
 
         void log_info(
             std::string_view str,
-            std::chrono::steady_clock::time_point time_point = {},
-            bool include_time = false,
+            std::optional<std::chrono::steady_clock::time_point> tp = std::nullopt,
             bool include_path = false,
+            bool timestamp = DEFAULT_TIMESTAMP_ON_LOG_PRINT,
             int errno_num = 0,
-            LogLevels log_level = LOG_LEVEL_INFO);
+            LogLevels log_level = LOG_LEVEL_INFO,
+            bool use_ansi = USE_ANSI_ON_LOG_PRINT,
+            std::source_location src = std::source_location::current());
 
         void log_warn(
             std::string_view str,
-            bool include_time = false,
+            std::optional<std::chrono::steady_clock::time_point> tp = std::nullopt,
             bool include_path = false,
+            bool timestamp = DEFAULT_TIMESTAMP_ON_LOG_PRINT,
             int errno_num = 0,
-            std::chrono::steady_clock::time_point time_point = {},
-            LogLevels log_level = LOG_LEVEL_WARN);
+            LogLevels log_level = LOG_LEVEL_WARN,
+            bool use_ansi = USE_ANSI_ON_LOG_PRINT,
+            std::source_location src = std::source_location::current());
 
         void log_err(
             std::string_view str,
-            bool include_path = false,
-            bool include_time = false,
+            std::optional<std::chrono::steady_clock::time_point> tp = std::nullopt,
             int errno_num = errno,
-            std::chrono::steady_clock::time_point time_point = {},
-            LogLevels log_level = LOG_LEVEL_ERR);
+            bool include_path = true,
+            bool timestamp = DEFAULT_TIMESTAMP_ON_LOG_PRINT,
+            LogLevels log_level = LOG_LEVEL_ERR,
+            bool use_ansi = USE_ANSI_ON_LOG_PRINT,
+            std::source_location src = std::source_location::current());
 
-        logger(int argc, const char **argv, LogLevels level = DEFAULT_LOG_LEVEL);
+        logger(
+            std::optional<int> argc = std::nullopt,
+            std::optional<char **> argv = std::nullopt,
+            LogLevels level = DEFAULT_LOG_LEVEL,
+            const FILE *log_file = nullptr);
 
         ~logger();
     };

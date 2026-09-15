@@ -34,14 +34,24 @@ You must initialize the `lgr::logger` object to start. Pass the standard CLI `ar
 ```c++
 #include "tlpp.hpp"
 
-int main(const int argc, const char **argv) {
+int main(const int argc, char **argv) {
     // initialize the logger object
     lgr::logger logger(argc, argv);
     // the logger automatically parses flags like -log=info or -o <path>
+
+    // or you can initialize it with its default params:
+    // lgr::logger logger{};
+    // so there will be no flag parsing
+
     // and you're ready to log!
+    logger.log_err("Oh no, an error occured", std::nullopt, EINVAL, false);
+    //                                        ^^^^^^^^^^^^  ^^^^^^  ^^^^^
+    //                                        time_point    errno   include_path
     return 0;
 }
 ```
+**Output:** `[ERROR] Oh no, an error occured (Invalid argument)`
+
 ### Logging
 Tlpp provides dedicated methods for each log level. This is intended to make log calls short, with as much context you'll need for one of another log level (e.g., `log_err()` automatically uses `errno`, so there's no need to explicitly specify it).
 | method                                | description                            | use case                                               |
